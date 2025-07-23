@@ -1,32 +1,52 @@
 import cv2
+import pytesseract
+import numpy as np
+from PIL import Image
+import os
 
 # Load the image
 image_path = "/Users/anuragrawat/Documents/GitHub/FreeLance/SampleFiles/ImageFIle.jpg"  # path to your uploaded image
 output_file = '/Users/anuragrawat/Documents/GitHub/FreeLance/SampleFiles/extracted_text.txt'
-img = cv2.imread(image_path)
 
-# Convert to grayscale
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# Set tesseract path if needed (Windows users only)
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# Apply binary thresholding with inversion
-_, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+# Load image
+image_path = image_path
+image = cv2.imread(image_path)
 
-# Morphological operations to highlight rectangular blocks
-kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 10))  # Adjust based on block size
-dilated = cv2.dilate(thresh, kernel, iterations=1)
+# Dimensions
+height, width, _ = image.shape
 
-# Find contours
-contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+# Grid definition
+rows = 10
+cols = 3
+cell_height = height // rows
+cell_width = width // cols
 
-# Filter valid rectangles by size
-block_count = 0
-min_width, min_height = 100, 50  # Filter out small noise
+# Output file
+output_file = output_file
+with open(output_file, "w", encoding="utf-8") as f_out:
+    for row in range(rows):
+        for col in range(cols):
+            x1 = col * cell_width
+            y1 = row * cell_height
+            x2 = x1 + cell_width
+            y2 = y1 + cell_height
 
-for cnt in contours:
-    x, y, w, h = cv2.boundingRect(cnt)
-    if w > min_width and h > min_height:
-        block_count += 1
-        # Optional: Draw rectangles for visualization
-        # cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            # Crop cell
+            cell_img = image[y1:y2, x1:x2]
 
-print(f"🧮 Total rectangle blocks detected: {block_count}")
+            # Preprocess for better OCR
+            gray = cv2.cvtColor(cell_img, cv2.COLOR_BGR2GRAY)
+
+            # Extract text
+            #text = pytesseract.image_to_string(gray, lang='hin+eng')
+            text = pytesseract.image_to_string(gray, lang='hin')
+
+            # Write block info and text
+            f_out.write(f"\n--- Block Row {row+1}, Column {col+1} ---\n")
+            f_out.write(text.strip())
+            f_out.write("\n")
+
+print(f"[✓] All extracted text saved to '{output_file}'")
