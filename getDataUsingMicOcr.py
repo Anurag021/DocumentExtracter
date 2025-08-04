@@ -6,11 +6,18 @@ import os
 import os
 import re
 import pandas as pd
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+from PIL import Image
+import requests
 
 # Load the image
 image_path = "/Users/anuragrawat/Documents/GitHub/FreeLance/SampleFiles/ImageFIle.jpg"  # path to your uploaded image
 output_file = '/Users/anuragrawat/Documents/GitHub/FreeLance/SampleFiles/extracted_text.txt'
 # enhancedImage_path = "/Users/anuragrawat/Documents/GitHub/FreeLance/DocumentExtracter/enhanced_with_pil.jpg"
+
+# Load processor and model ---- only for microsoft OCR
+processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-printed")
+model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-printed")
 
 # Set tesseract path if needed (Windows users only)
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -65,45 +72,49 @@ with open(output_file, "w", encoding="utf-8") as f_out:
             uy2 = y1 + 190
             userId_img = image[uy1:uy2, ux1:ux2]
 
-            # Preprocess for better OCR
+            # # Preprocess for better OCR - cv2 extraction
             gray = cv2.cvtColor(cell_img, cv2.COLOR_BGR2GRAY)
             grayUSerId = cv2.cvtColor(userId_img, cv2.COLOR_BGR2GRAY)
-
-            # Extract text
-            #text = pytesseract.image_to_string(gray, lang='hin+eng')
+            # # Extract text
+            # #text = pytesseract.image_to_string(gray, lang='hin+eng')
             text = pytesseract.image_to_string(gray, lang='hin')
 
-            #denoised = cv2.fastNlMeansDenoising(grayUSerId, h=30)
+            # #denoised = cv2.fastNlMeansDenoising(grayUSerId, h=30)
             
-            # thresh = cv2.adaptiveThreshold(
-            # denoised, 255, 
-            # cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            # cv2.THRESH_BINARY, 11, 2
-            #     )
+            # # thresh = cv2.adaptiveThreshold(
+            # # denoised, 255, 
+            # # cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            # # cv2.THRESH_BINARY, 11, 2
+            # #     )
 
-            # Sharpening
-            # kernel = np.array([[0, -1, 0],
-            #                 [-1, 5,-1],
-            #                 [0, -1, 0]])
-            # sharpened = cv2.filter2D(denoised, -1, kernel)
+            # # Sharpening
+            # # kernel = np.array([[0, -1, 0],
+            # #                 [-1, 5,-1],
+            # #                 [0, -1, 0]])
+            # # sharpened = cv2.filter2D(denoised, -1, kernel)
+            # userId = pytesseract.image_to_string(grayUSerId, lang='eng')
+            # userId = 
+            #uidImage = Image.open(grayUSerId).convert("RGB")
+            uidImage = Image.fromarray(grayUSerId).convert("RGB")
+            pixel_values = processor(images=uidImage, return_tensors="pt").pixel_values
+            generated_ids = model.generate(pixel_values)
+            userId = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+            # # Write block info and text
+            # f_out.write(f"\n--- Block Row {row+1}, Column {col+1} xycordinates are {x1 , y1 , x2 , y2}, ---\n")
+            # # lines = text.splitlines()
+            # # count = 0
+            # # for line in lines:
+            # #     count = count+1      
+            # #     if "2" in line[:2]:
+            # #         name = line[line.find(":"):]
+            # #     elif "3" in line[:2]:
+            # #         FathersName = line[line.find(":"):]
 
-            
-            userId = pytesseract.image_to_string(grayUSerId, lang='eng')
-
-            # Write block info and text
-            f_out.write(f"\n--- Block Row {row+1}, Column {col+1} xycordinates are {x1 , y1 , x2 , y2}, ---\n")
-            # lines = text.splitlines()
-            # count = 0
-            # for line in lines:
-            #     count = count+1      
-            #     if "2" in line[:2]:
-            #         name = line[line.find(":"):]
-            #     elif "3" in line[:2]:
-            #         FathersName = line[line.find(":"):]
-
-            #     f_out.write(f"{count} - {line.strip()}")
+            # #     f_out.write(f"{count} - {line.strip()}")
                 
-            #     f_out.write("\n")
+            # #     f_out.write("\n")
+
+            #--------------Microsoft ocr extraction---------
             
             f_out.write(text.strip())
             f_out.write("\n")
@@ -131,3 +142,26 @@ with open(output_file, "w", encoding="utf-8") as f_out:
 
 
 print(f"[✓] All extracted text saved to '{output_file}'")
+
+###---------copilot code-----------
+# from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+# from PIL import Image
+# import requests
+
+# # Load image (can be local or from a URL)
+# url = "https://fki.tic.heia-fr.ch/static/img/a01-122-02.jpg"
+# image = Image.open(requests.get(url, stream=True).raw).convert("RGB")
+
+# # Load processor and model
+# processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-printed")
+# model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-printed")
+
+# # Preprocess image
+# pixel_values = processor(images=image, return_tensors="pt").pixel_values
+
+# # Generate text
+# generated_ids = model.generate(pixel_values)
+# generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+# print("Extracted Text:", generated_text)
+
